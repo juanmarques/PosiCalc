@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora de Preço Médio para Futuros</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+
+    <div class="bg-white p-6 sm:p-8 rounded-xl shadow-lg w-full max-w-lg">
+        <h1 class="text-2xl sm:text-3xl font-bold text-center text-gray-800 mb-6">
+            Calculadora de Preço Médio
+        </h1>
+        
+        <!-- Formulário para coletar os dados da posição do usuário -->
+        <form id="calculatorForm" onsubmit="event.preventDefault(); calculate();" class="space-y-4">
+            <div>
+                <label for="positionType" class="block text-sm font-medium text-gray-700 mb-1">Tipo de Posição</label>
+                <select id="positionType" class="w-full p-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                    <option value="short">Short (Vendido)</option>
+                    <option value="long">Long (Comprado)</option>
+                </select>
+            </div>
+            <div>
+                <label for="currentQty" class="block text-sm font-medium text-gray-700 mb-1">Quantidade Atual da Posição</label>
+                <input type="number" id="currentQty" step="any" placeholder="Ex: 245.4" required class="w-full p-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+            </div>
+            <div>
+                <label for="currentEntryPrice" class="block text-sm font-medium text-gray-700 mb-1">Preço Médio de Entrada Atual (USDT)</label>
+                <input type="number" id="currentEntryPrice" step="any" placeholder="Ex: 154.458" required class="w-full p-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+            </div>
+            <div>
+                <label for="marketPrice" class="block text-sm font-medium text-gray-700 mb-1">Preço Atual de Mercado (USDT)</label>
+                <input type="number" id="marketPrice" step="any" placeholder="Ex: 167.380" required class="w-full p-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+            </div>
+            <div>
+                <label for="desiredAvgPrice" class="block text-sm font-medium text-gray-700 mb-1">Novo Preço Médio Desejado (USDT)</label>
+                <input type="number" id="desiredAvgPrice" step="any" placeholder="Ex: 165" required class="w-full p-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+            </div>
+            <div>
+                <label for="leverage" class="block text-sm font-medium text-gray-700 mb-1">Sua Alavancagem</label>
+                <input type="number" id="leverage" step="any" placeholder="Ex: 9" required class="w-full p-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+            </div>
+            
+            <button type="submit" class="w-full p-4 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-all duration-300 text-lg">
+                Calcular
+            </button>
+        </form>
+
+        <!-- Div para exibir os resultados ou mensagens de erro -->
+        <div id="results" class="mt-6"></div>
+
+        <!-- Aviso de Risco Fixo -->
+        <div class="mt-6 p-4 bg-yellow-50 border-l-4 border-yellow-400 text-yellow-800 rounded-r-lg">
+            <h4 class="font-bold">⚠️ Aviso de Risco Extremo</h4>
+            <p class="text-sm mt-1">
+                A estratégia de fazer preço médio (adicionar a uma posição perdedora) é extremamente arriscada e pode levar a perdas significativamente maiores, incluindo a liquidação de todo o seu capital. Use esta ferramenta por sua conta e risco.
+            </p>
+        </div>
+    </div>
+
+    <script>
+        function calculate() {
+            // Elemento para exibir os resultados
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = ''; // Limpa resultados anteriores
+
+            // Coleta dos valores dos inputs do formulário
+            const positionType = document.getElementById('positionType').value;
+            const Q1 = parseFloat(document.getElementById('currentQty').value);
+            const P1 = parseFloat(document.getElementById('currentEntryPrice').value);
+            const P_atual = parseFloat(document.getElementById('marketPrice').value);
+            const P_desejado = parseFloat(document.getElementById('desiredAvgPrice').value);
+            const L = parseFloat(document.getElementById('leverage').value);
+
+            // Função para exibir mensagens de erro
+            function displayError(message) {
+                resultsDiv.innerHTML = `<div class="p-4 bg-red-100 border-l-4 border-red-500 text-red-700 rounded-r-lg"><p class="font-bold">Erro de Validação</p><p>${message}</p></div>`;
+            }
+
+            // Validações dos dados de entrada
+            if (isNaN(Q1) || isNaN(P1) || isNaN(P_atual) || isNaN(P_desejado) || isNaN(L)) {
+                displayError('Por favor, preencha todos os campos com números válidos.');
+                return;
+            }
+            if (L <= 0 || Q1 <= 0 || P1 <= 0 || P_atual <= 0 || P_desejado <= 0) {
+                displayError('Nenhum valor pode ser zero ou negativo.');
+                return;
+            }
+            if (positionType === 'short' && P_desejado <= P1) {
+                displayError('Para posição SHORT, o novo preço médio desejado deve ser MAIOR que o preço de entrada atual.');
+                return;
+            }
+            if (positionType === 'long' && P_desejado >= P1) {
+                displayError('Para posição LONG, o novo preço médio desejado deve ser MENOR que o preço de entrada atual.');
+                return;
+            }
+            if (P_desejado === P_atual) {
+                displayError('O preço médio desejado não pode ser exatamente igual ao preço de mercado atual (resulta em divisão por zero).');
+                return;
+            }
+
+            // Cálculo principal
+            const numerator = (P_desejado - P1) * Q1;
+            const denominator = P_atual - P_desejado;
+            
+            // Validação lógica da estratégia (CORRIGIDA)
+            if ((positionType === 'short' && denominator <= 0) || (positionType === 'long' && denominator >= 0)) {
+                let errorMsg = positionType === 'short' 
+                    ? `Para uma posição SHORT, o Preço Desejado (${P_desejado.toLocaleString()}) deve ser menor que o Preço de Mercado (${P_atual.toLocaleString()}).`
+                    : `Para uma posição LONG, o Preço Desejado (${P_desejado.toLocaleString()}) deve ser maior que o Preço de Mercado (${P_atual.toLocaleString()}).`;
+                displayError(errorMsg);
+                return;
+            }
+
+            const Q2 = Math.abs(numerator / denominator);
+            const additionalNotional = Q2 * P_atual;
+            const requiredMargin = additionalNotional / L;
+
+            // Exibição dos resultados formatados
+            resultsDiv.innerHTML = `
+                <div class="p-5 bg-blue-50 border-l-4 border-blue-500 rounded-r-lg space-y-3">
+                    <h3 class="text-xl font-bold text-gray-800">Resultado do Cálculo</h3>
+                    <p class="text-gray-600">Para mover seu preço médio de <strong>${P1.toLocaleString()}</strong> para <strong>${P_desejado.toLocaleString()} USDT</strong>, você precisará:</p>
+                    
+                    <div class="pt-2">
+                        <p class="text-sm text-gray-500">1. Adicionar à Posição</p>
+                        <p class="text-lg font-semibold text-gray-800">${Q2.toLocaleString(undefined, {minimumFractionDigits: 4, maximumFractionDigits: 4})} contratos/moedas</p>
+                    </div>
+                    
+                    <div class="pt-2">
+                        <p class="text-sm text-gray-500">2. Valor Nocional Adicional</p>
+                        <p class="text-lg font-semibold text-gray-800">${additionalNotional.toLocaleString('pt-BR', { style: 'currency', currency: 'USD' })}</p>
+                    </div>
+
+                    <div class="pt-2 bg-blue-100 p-4 rounded-lg mt-2">
+                        <p class="text-sm font-bold text-blue-800">3. MARGEM NECESSÁRIA (com ${L}x de alavancagem)</p>
+                        <p class="text-2xl font-bold text-blue-800">${requiredMargin.toLocaleString('pt-BR', { style: 'currency', currency: 'USD' })}</p>
+                    </div>
+                </div>
+            `;
+        }
+    </script>
+
+</body>
+</html>
